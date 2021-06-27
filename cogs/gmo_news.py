@@ -153,22 +153,11 @@ class GMO_News(commands.Cog):
                         title=v if (v := inner_child.attrs.get("alt")) else inner_child.attrs["src"],
                     ).set_image(url=inner_child.attrs["src"]))
                 elif inner_child.name == "video":
-                    async with aiohttp.ClientSession() as session:
-                        async with session.get(inner_child.attrs["src"]) as r:
-                            with open("./videos/vid", "wb") as f:
-                                f.write(await r.read())
-
-                    embeds.append([
-                        discord.Embed(
-                            title="Zum Video",
-                            url=inner_child.attrs["src"]
-                        ).set_image(url=inner_child.attrs["src"]),
-                        discord.File(
-                            fp=open("./videos/vid", "rb"),
-                            filename="Video attachment",
-                            spoiler=True
-                        )
-                    ])
+                    embeds[-1].add_field(
+                        name=config.EMPTY_CHAR,
+                        value="[Video](%s)" % inner_child.attrs["src"],
+                        inline=False
+                    )
 
             else:
                 fp = html_to_dc_md(repr(child)) 
