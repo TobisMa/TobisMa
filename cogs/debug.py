@@ -12,7 +12,7 @@ class Debug(commands.Cog):
 
     def cog_check(self, ctx) -> bool:
         r = True
-        logging.debug("Checking debug access")
+        logging.debug("Checking debug access from %s" % ctx.author)
         r = has_role(ctx.author, config.ROLES["developer"]["id"])
         logging.debug("debug access result: %s" % r)
         return r

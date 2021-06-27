@@ -26,7 +26,7 @@ class GMO_News(commands.Cog):
     async def gmo_news_loop(self):
         await self.bot.wait_until_ready()
 
-        logging.info("Checking gmo news")
+        logging.info("Checking gmo news...")
         articles = await self.get_articles()
         logging.info("Checked gmo news")
 
