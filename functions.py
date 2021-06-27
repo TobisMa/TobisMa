@@ -143,7 +143,7 @@ def html_to_dc_md(text: str) -> str:
     @returns: the parsed html to an discord message format
     @rtype: str
     """
-    text = text.escape_dc_chars()
+    text = escape_dc_chars(text)
     quoted = False
     tag_pos = []
     tag = False
@@ -302,7 +302,15 @@ def save_json_on_path(*, file: str, path: str, value: Any) -> None:
 
 
 def escape_dc_chars(text: str) -> str:
-    return text.replace("*", "\\").replace("_", "\\")
+    """Puts `\\` before symbols `*` and `_`
+
+    Args:
+        text (str): the text which is to escape
+
+    Returns:
+        str: the escaped text
+    """
+    return text.replace("\\", "\\\\").replace("*", "\\").replace("_", "\\")
 
 
 logging.info("functions was loaded successfully")
