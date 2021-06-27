@@ -1,25 +1,23 @@
 import logging
-import traceback
 
 import discord
 from discord.ext import commands
 from discord.ext.commands.errors import ExtensionError
 
 import config
-from functions import *
 
 # set other loggers on error
 dc_logger = logging.getLogger(name="discord")
-dc_logger.setLevel(level=logging.ERROR)
+dc_logger.setLevel(level=logging.CRITICAL)
 
 aiohttp_logger = logging.getLogger(name="aiohttp")
-aiohttp_logger.setLevel(level=logging.ERROR)
+aiohttp_logger.setLevel(level=logging.CRITICAL)
 
-urllib3_logger = logging.getLogger(name="urllib3")
-urllib3_logger.setLevel(level=logging.ERROR)
+urllib3_logger = logging.getLogger(name="   urllib3")
+urllib3_logger.setLevel(level=logging.CRITICAL)
 
 asyncio_logger = logging.getLogger(name="asyncio")
-asyncio_logger.setLevel(level=logging.ERROR)
+asyncio_logger.setLevel(level=logging.CRITICAL)
 
 logging.basicConfig(
     level=logging.DEBUG, 
@@ -28,19 +26,39 @@ logging.basicConfig(
 )
 
 logging.info("All modules imported")
-
+logging.info("Status: %s" % config.STATUS)
+logging.info("Prefix: %s" % config.PREFIX)
 
 bot = commands.Bot(
-    command_prefix=".",
-    status=getattr(discord.Status, config.STATUS, "offline")
+    command_prefix=config.PREFIX,
+    status=getattr(discord.Status, config.STATUS),
+    activity=config.ACTIVITY,
+    owner_ids=config.OWNER_IDS
 )
 
 
+@bot.event
+async def on_ready():
+    logging.info("Bot has been started and is active")
+
+
+@bot.listen("on_message")
+async def on_message_event_handler(msg: discord.Message):
+    if msg.author == bot.user: return
+
+
 # loading extensions
+logging.info("Loading extensions")
+
 for ext_name in config.EXTENSIONS:
     try:
-        bot.load_extension(ext_name)
-    except ExtensionError as e:
-        logging.warning("Extension '%s' not loaded" % ext_name)
+        bot.load_extension("cogs.%s" % ext_name)
+    except ExtensionError as err:
+        logging.warning("failed to load extension '%s' beacuse of '%s'" % (ext_name, str(err)))
+    else:
+        logging.info("Extension '%s' loaded" % ext_name)
+
+
+logging.info("Loaded extensions")
 
 bot.run(config.TOKEN)

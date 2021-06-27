@@ -1,5 +1,9 @@
 import json as __json
+import logging
+from datetime import datetime
+from typing import Union
 
+import discord
 from typing_extensions import Literal
 
 file_path = "./data/bot.json"
@@ -7,15 +11,73 @@ file_path = "./data/bot.json"
 data = __json.load(open(file_path, "r"))
 
 
-# default config
+# default config from bot.json
 STATUS: str = data["status"]
 TOKEN: str = data["token"]
+PREFIX: str = data["prefix"]
 EXTENSIONS: list[str] = data["load_extensions"]
 LOG_CHANNEL_ID: int = data["log_channel_id"]
+OWNER_IDS: list[int] = data["owner_ids"]
+ACTIVITY: discord.Activity = discord.Activity(
+    name=data["activity"]["name"],
+    type=getattr(discord.ActivityType, data["activity"]["type"]),
+    #details=data["activity"]["details"],
+    start=datetime.utcnow()
+)
+
+NEWS_DATA_FILE_PATH: str = data["news"]["file_path"]
+
+GMO_NEWS_URL: str = data["news"]["url"]["gmo"]
+GMO_NEWS_FILE: str = data["news"]["file"]["gmo"]
+GMO_NEWS_AUTHOR: list[str] = data["news"]["author"]["gmo"]
+
+TS_NEWS_URL: str = data["news"]["url"]["ts"]
+TS_NEWS_FILE: str = data["news"]["file"]["ts"]
+
+NEWS_CHANNEL_ID: int = data["news"]["channel_id"]
+INTERVAL: int = data["news"]["check_interval"]
+
+ROLES: dict[str, dict[str, Union[int, str]]] = data["roles"]
+
+# for discord
+EMPTY_CHAR = "\u200B"  # symbol: "­"
+
+# colors
+class COLOR(object):
+
+    """Stores all results from color function from discord.Color as variable"""
+
+    RED = discord.Color.red()
+    DARK_RED = discord.Color.dark_red()
+    BLUE = discord.Color.blue
+    DARK_BLUE = discord.Color.dark_blue()
+    PURPLE = discord.Color.purple()
+    DARK_PURPLE = discord.Color.dark_purple()
+    GREEN = discord.Color.green()
+    DARK_GREEN = discord.Color.dark_green()
+    MAGENTA = discord.Color.dark_magenta()
+    DARK_MAGENTA = discord.Color.dark_magenta()
+    ORANGE = discord.Color.orange()
+    DARK_ORANGE = discord.Color.dark_orange()
+    LIGHT_GREY = discord.Color.light_grey()
+    LIGHTER_GREY = discord.Color.lighter_grey()
+    DARKER_GREY = discord.Color.darker_grey()
+    DARK_GREY = discord.Color.dark_grey()
+    GOLD = discord.Color.gold()
+    DARK_GOLD = discord.Color.dark_gold()
+    TEAL = discord.Color.teal()
+    DARK_TEAL = discord.Color.dark_teal()
+    BLURPLE = discord.Color.blurple()
+    WHITE = discord.Color.from_rgb(254, 254, 254)
+    get_custom_from_rgb = discord.Color.from_rgb
+    
+    INFO = discord.Color.from_rgb(30, 200, 255)
 
 
-def reload():
+def reload() -> Literal['Reloaded config successfully']:
     import importlib
     importlib.reload(__import__(__name__))
 
-    return "Reloaded condig successfully"
+    return "Reloaded config successfully"
+
+logging.info("config was loaded successfully")
