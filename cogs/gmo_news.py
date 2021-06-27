@@ -1,13 +1,12 @@
 import asyncio
 import logging
-import sys
 from datetime import datetime
-from typing import Coroutine
 
 import aiohttp
 import config
 import discord
-from bs4 import BeautifulSoup, Tag as HTMLTag
+from bs4 import BeautifulSoup
+from bs4 import Tag as HTMLTag
 from discord.embeds import EmptyEmbed
 from discord.ext import commands, tasks
 from errors import ElementNotFound
@@ -38,12 +37,15 @@ class GMO_News(commands.Cog):
             return
 
         for article in articles:
-            for e in article:
-                if isinstance(e, discord.Embed):
-                    await news_channel.send(embed=e)
-                else:
-                    await news_channel.send(embed=e[0], file=e[1])
-                    
+            try:
+                for e in article:
+                    if isinstance(e, discord.Embed):
+                        await news_channel.send(embed=e)
+                    else:
+                        await news_channel.send(embed=e[0], file=e[1])
+            except Exception as e:
+                await report_error(self.bot, e, logging.ERROR)
+                await news_channel.send(article[0].url)
 
             logging.info("Sent gmo news article '%s'" % article[0].title)
             
@@ -165,11 +167,14 @@ class GMO_News(commands.Cog):
                     continue
 
                 elif embeds[at_embed].description == EmptyEmbed:
-                    embeds[at_embed].description = fp
+                    embeds[at_embed].description = skip(fp, 2000)
                 else:
-                    embeds[at_embed].add_field(name=config.EMPTY_CHAR, value=fp, inline=False)
+                    embeds[at_embed].add_field(name=config.EMPTY_CHAR, value=skip(fp, 1024), inline=False)
+        try:
+            embeds[0].title = article_div.find("p", class_="titel").find("a", text=True).text
+        except Exception as e:
+            embeds[0].title = "Error: " + str(e)
 
-        embeds[0].title = article_div.find("p", class_="titel").find("a", text=True).text
         embeds[0].url = article_div.find("p", class_="titel").find("a", href=True)["href"]
         if isinstance(embeds[-1], list):
             embeds[-1][0].set_footer(

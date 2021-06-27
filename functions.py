@@ -313,6 +313,12 @@ def escape_dc_chars(text: str) -> str:
     return text.replace("\\", "\\\\").replace("*", "\\").replace("_", "\\")
 
 
+def skip(text: str, length: int = 2000) -> str:
+    if len(text) >= 3 and len(text) >= length - 3:
+        return text[:-length + 3] + "..."
+    return text
+
+
 logging.info("functions was loaded successfully")
 
 
