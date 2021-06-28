@@ -34,7 +34,8 @@ class TS_News(commands.Cog):
         for article in reversed(articles):
             await news_channel.send(embed=article)
 
-        logging.info("Sent %i atricles" % len(articles))
+        if len(articles):
+            logging.info("Sent %i atricles" % len(articles))
     
     @ts_news_loop.before_loop
     async def before_ts_news_loop(self):
@@ -73,7 +74,8 @@ class TS_News(commands.Cog):
                     title=article["title"],
                     description=article["firstSentence"],
                     url=await self.get_link(article),
-                    image=await self.get_image(article)
+                    image=await self.get_image(article),
+                    color=config.COLOR.ORANGE
                 ))
                 await self.save_article(article["externalId"])
 
