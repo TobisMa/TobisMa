@@ -11,6 +11,11 @@ from functions import *
 
 
 class TS_News(commands.Cog):
+
+    """
+    Checks news from the (tagesschau)[https://www.tagesschau.de/] using their api2
+    """
+
     def __init__(self, bot: commands.Bot):
         self.bot = bot
         self.external_ids: list[str] = self.load_external_ids()
@@ -21,7 +26,7 @@ class TS_News(commands.Cog):
     async def ts_news_loop(self):
         await self.bot.wait_until_ready()
 
-        logging.info("Chcking ts news")
+        logging.info("Chcking ts news...")
         articles = await self.get_articles()
         logging.info("Checked ts news")
 

@@ -9,11 +9,15 @@ from bs4 import BeautifulSoup
 from bs4 import Tag as HTMLTag
 from discord.embeds import EmptyEmbed
 from discord.ext import commands, tasks
-from errors import ElementNotFound
+from errors import *
 from functions import *
 
 
 class GMO_News(commands.Cog):
+
+    """
+    Checks the gmo homepage news every %s seconds
+    """
 
     NO_TEXT_TAG = ["img", "video"]
 
@@ -36,13 +40,19 @@ class GMO_News(commands.Cog):
             logging.error("Getting channel with id '%s' failed" % config.NEWS_CHANNEL_ID)
             return
 
-        for article in articles:
+        for article in reversed(articles):
             try:
-                for e in article:
-                    if isinstance(e, discord.Embed):
-                        await news_channel.send(embed=e)
+                for i, e in enumerate(article, start=0):
+                    if i == 0:
+                        content = "<@&%s>" % config.ROLES["developer"]["id"]
                     else:
-                        await news_channel.send(embed=e[0], file=e[1])
+                        content = None
+
+                    if isinstance(e, discord.Embed):
+                        await news_channel.send(content=content, embed=e)
+                    else:
+                        await news_channel.send(content=content, embed=e[0], file=e[1])
+                        
             except Exception as e:
                 await report_error(self.bot, e, logging.ERROR)
                 await news_channel.send(article[0].url)
@@ -52,6 +62,9 @@ class GMO_News(commands.Cog):
             await self.save_article(article)
 
             logging.info("Saved article successfully")
+        
+        if len(articles):
+            logging.info("Sent %s gmo news article" % len(articles))
 
     @gmo_news_loop.before_loop
     async def before_gmo_news_loop(self):
@@ -76,7 +89,7 @@ class GMO_News(commands.Cog):
             await asyncio.sleep(10)
 
     async def save_article(self, article: list[discord.Embed]) -> None:
-        version = article[0].description
+        version = article[-1]._fields[-1]["value"]
         link = article[0].url
 
         saved_article = json.load(open(config.NEWS_DATA_FILE_PATH))["gmo"]
@@ -115,15 +128,18 @@ class GMO_News(commands.Cog):
 
     async def article_was_sent(self, article: str) -> bool:
         soup = BeautifulSoup(article, "html.parser")
-        ps = soup.find_all("p")
         link = soup.find(class_="titel").find("a", href=True)["href"]  # type: ignore
 
         jsn = json.load(open(config.NEWS_DATA_FILE_PATH, "r", encoding="utf-8"))["gmo"]
 
         for element in jsn:
             if element["link"] == link:
-                if element["version"] == html_to_dc_md(repr(ps[1])):
+                date = soup.find(class_="datum")
+                if date is None:
+                    raise NewsError("Date could not be read from a NoneType-obj")
+                if element["version"] == date.text:
                     return True
+
         return False
 
     async def format_article(self, html: str) -> list:
@@ -197,6 +213,14 @@ class GMO_News(commands.Cog):
                 e.color = config.COLOR.GREEN
             
         return embeds
+
+    @commands.command(
+        name="reload_gmo_news",
+        aliases=["gmo_news", "check_gmo_news", "gmof5"],
+        description="Reloads gmo news"
+    )
+    async def reload_gmo_news(self, ctx):
+        self.gmo_news_loop.restart()
 
 
 def setup(bot: commands.Bot):

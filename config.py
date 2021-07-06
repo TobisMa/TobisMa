@@ -15,6 +15,8 @@ data = __json.load(open(file_path, "r"))
 STATUS: str = data["status"]
 TOKEN: str = data["token"]
 PREFIX: str = data["prefix"]
+RESTRICTED_DEBUG_VARS: str = data["restricted_debug_vars"]
+
 EXTENSIONS: list[str] = data["load_extensions"]
 LOG_CHANNEL_ID: int = data["log_channel_id"]
 OWNER_IDS: list[int] = data["owner_ids"]
@@ -41,6 +43,22 @@ ROLES: dict[str, dict[str, Union[int, str]]] = data["roles"]
 
 # for discord
 EMPTY_CHAR = "\u200B"  # symbol: "­"
+PREV_PAGE_EMOJI: str = chr(9664)
+NEXT_PAGE_EMOJI: str = chr(9654)
+STOP_SIGN_EMOJI: str = chr(128721)
+PAGE_EMOJIS: list[str] = [PREV_PAGE_EMOJI, STOP_SIGN_EMOJI, NEXT_PAGE_EMOJI]
+
+# never changing because of discord or user wished for it
+JSON_AND_PY_KWDS: list[tuple[str, str]] = [
+    ("false", "False"),
+    ("true", "True"),
+    ("Infinity", "inf"),
+    ("null", "None")
+]
+DAYS = ["Montag", "Dienstag", "Mittwoch", "Donnerstag", "Freitag", "Samstag", "Sonntag"]
+
+# runtime
+FILE_FP: list = []
 
 # colors
 class COLOR(object):
@@ -71,7 +89,11 @@ class COLOR(object):
     WHITE = discord.Color.from_rgb(254, 254, 254)
     get_custom_from_rgb = discord.Color.from_rgb
     
+    HELP = discord.Color.from_rgb(255, 201, 14)
+
     INFO = discord.Color.from_rgb(30, 200, 255)
+    WARNING = discord.Color.dark_orange()
+    ERROR = discord.Color.red()
 
 
 def reload() -> Literal['Reloaded config successfully']:
@@ -79,5 +101,6 @@ def reload() -> Literal['Reloaded config successfully']:
     importlib.reload(__import__(__name__))
 
     return "Reloaded config successfully"
+
 
 logging.info("config was loaded successfully")

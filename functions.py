@@ -1,9 +1,11 @@
+import ast
 import json
 import logging
-import sys
+import random
 import traceback
 from datetime import datetime
-from typing import Annotated, Any, Iterable, Optional, Union
+from types import MappingProxyType
+from typing import Annotated, Any, Iterable, Literal, Mapping, Optional, Union
 
 import discord
 from discord.ext import commands
@@ -24,19 +26,19 @@ async def report_error(bot: commands.Bot, e: BaseException, log_level=logging.WA
         logging.error("Getting channel with id '%s' failed" % config.LOG_CHANNEL_ID)
         return
 
-    await c.send(embed=embed_error(e))
+    await c.send(embed=embed_error(error=e))
     
 
 def embed_message(*,
     title: str,
     description: str,
     color: Optional[Union[discord.Color, str]] = None,
-    author: Optional[Union[discord.User, discord.Member, str, Annotated[Iterable[str], 2]]] = None,
+    author: Optional[Union[discord.User, discord.Member, str, Annotated[Iterable[str], 2], discord.ClientUser]] = None,
     timestamp: Union[datetime, bool] = True,
     image: Optional[str] = None,
     url: Optional[str] = None,
 #    video: Optional[dict[str, Union[str, int]]] = None,
-    fields: Iterable[Union[tuple[str, str], tuple[str, str, bool], Annotated[list[str], 2]]] = ()
+    fields: Iterable[Union[tuple[str, str], tuple[str, str, bool], Annotated[list[str], 2], dict[str, Union[str, bool]]]] = ()
 ) -> discord.Embed:
     embed = discord.Embed()
 
@@ -90,7 +92,11 @@ def embed_message(*,
 
     # fields adding
     for f in fields:
-        if len(f) == 2:
+        if isinstance(f, dict):
+            embed.add_field(
+                **f
+            )
+        elif len(f) == 2:
             embed.add_field(
                 name=f[0],
                 value=f[1],
@@ -106,12 +112,6 @@ def embed_message(*,
 
         else:
             logging.warning("Field property '%s' was not added because of wrong structure" % f)
-
-    return embed
-
-
-def embed_error(err: BaseException) -> discord.Embed:
-    embed = discord.Embed()
 
     return embed
 
@@ -317,6 +317,161 @@ def skip(text: str, length: int = 2000) -> str:
     if len(text) >= 3 and len(text) >= length - 3:
         return text[:-length + 3] + "..."
     return text
+
+
+def embed_error(*, error: BaseException, color: discord.Color = config.COLOR.RED, bot=None) -> discord.Embed:
+    return embed_message(
+        title="An '%s'-exception occured" % type(error),
+        description=("```py\n" + ''.join(
+            traceback.format_exception(
+                etype=type(error),
+                value=error,
+                tb=error.__traceback__
+            )
+        ) + "```")[-2000:],
+        color=color,
+        author=getattr(bot, "user", "TobisMa"),
+    )
+
+
+def pyformat(pyt, type = str) -> str:
+    ret = None
+    if isinstance(pyt, str) and isinstance(type, str):
+        ret = pyt
+
+    elif isinstance(pyt, list) or isinstance(type, list):
+        pyt = str(repr(pyt))[1:-1].split(", ")
+        pyt = ',\n  '.join(pyt)
+
+        ret = "[\n  " + pyt + "\n]"
+
+    elif isinstance(pyt, dict) or isinstance(type, dict) or isinstance(pyt, Mapping):
+        ret = json.dumps(make_json_serializable(pyt, func=lambda x: str(repr(x))), indent=2)
+        ret = convert_json_kwds_to_py_kywd(ret)
+
+    elif isinstance(pyt, MappingProxyType):
+        ret = json.dumps(make_json_serializable(dict(pyt), func=lambda x: str(repr(x))), indent=2)
+        ret = convert_json_kwds_to_py_kywd(ret)
+
+    else:
+        ret = repr(pyt)
+    
+    return ret
+
+
+def make_json_serializable(d, func = lambda x: str(repr(x))) -> dict[str, Any]:
+    """
+    Takes in a dict and converts all values which are not defined in json in strings using func(value). If this raises an exception it will try
+    not catch the error. Keys are converted like values in strings if they are not already strings
+    @param d: any dict
+    @param func: the functions used to convert not serializable_objects. Needs to return something
+    @return: the json serializable dict
+    @rtype: dict
+    """
+    def convert_value_of_list(v: Any) -> Union[float, int, str, bool, list, dict, None]:
+        if not isinstance(v, (float, int, str, bool, list, dict, type(None))):
+            v = func(v)
+
+        elif isinstance(v, dict):
+            return make_json_serializable(v, func=func)
+
+        elif isinstance(v, list):
+            return [convert_value_of_list(sub_v) for sub_v in v]
+
+        return v
+
+    for key, value in d.items():
+        if not isinstance(key, str):
+            func(key)
+
+        if isinstance(value, dict):
+            d[key] = make_json_serializable(value, func=func)
+
+        elif isinstance(value, list):
+            d[key] = [convert_value_of_list(v) for v in value]
+
+        elif not isinstance(value, (float, int, str, bool, list, dict, type(None))):
+            d[key] = func(value)
+    
+    return d
+
+
+def convert_json_kwds_to_py_kywd(json_str: str) -> str:
+    """
+    Converts the json keywords in the string to python keywords. This function always assumes your input is a valid json string
+    @param json_str: the string which is assumed it has a valid json format
+    @return: the json string but using python keywords insetad of json keywords
+    @rtype: str
+    """
+    for json_kw, py_kw in config.JSON_AND_PY_KWDS:
+        json_str = json_str.replace(json_kw, py_kw)
+
+    return json_str
+
+
+def create_console_message(msg: str) -> discord.Embed:
+    return embed_message(
+        title="Console Output",
+        description="```" + msg.replace("```", "­`­`­`") + "```",  # second argument of replace has empty chars between them
+        color=config.COLOR.INFO
+    )
+
+
+def reload_functions() -> Literal['Reloaded functions successfully']:
+    import importlib
+    importlib.reload(__import__(__name__))
+
+    return "Reloaded functions successfully"
+
+
+def parse_prgm(pycode: str) -> str:
+    """
+    Formats str with `"` in python code to `'`
+    @param pycode: the valid syntax python code as str
+    @return: the formatted pycode
+    @rtype: str
+    """
+    quoted = False
+    fpycode = ""
+    last_sym = ""
+
+    for letter in pycode:
+        if letter == "\"":
+            if not quoted and last_sym == "\\":
+                fpycode += "\\"  # `'` will be added in the end of the if block
+            else:
+                letter += ""
+                quoted = bool(int(quoted) + 1 % 2)
+
+            fpycode += "\'"
+
+        else:
+            fpycode += letter
+
+    return fpycode
+
+
+def insert_ast_returns(body) -> None:
+    # insert return stmt if the last expression is a expression statement
+    if isinstance(body[-1], ast.Expr):
+        body[-1] = ast.Return(body[-1].value)
+        ast.fix_missing_locations(body[-1])
+
+    # for if statements, we insert returns into the body and the orelse
+    if isinstance(body[-1], ast.If):
+        insert_ast_returns(body[-1].body)
+        insert_ast_returns(body[-1].orelse)
+
+    # for with blocks, again we insert returns into the body
+    if isinstance(body[-1], ast.With):
+        insert_ast_returns(body[-1].body)
+
+
+def get_random_pfp(bot: commands.Bot):
+    u: Optional[discord.User] = bot.get_user(random.choice(config.OWNER_IDS))
+    if u is None:
+        return "https://discord.com/assets/847541504914fd33810e70a0ea73177e.ico"
+    return u.avatar_url._url
 
 
 logging.info("functions was loaded successfully")
