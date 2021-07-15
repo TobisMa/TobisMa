@@ -5,7 +5,7 @@ from discord.ext import commands
 from discord.ext.commands.errors import ExtensionError
 
 import config
-#from help_command import HelpCommand
+from help_command import HelpCommand
 
 # set other loggers on error
 dc_logger = logging.getLogger(name="discord")
@@ -25,6 +25,7 @@ logging.basicConfig(
     format='%(asctime)s | %(levelname)s: %(filename)s - %(lineno)s: %(msg)s', 
     force=True
 )
+logging.addLevelName(25, "BOTCODECHANGE")
 
 logging.info("All modules imported")
 logging.info("Status: %s" % config.STATUS)
@@ -35,7 +36,7 @@ bot = commands.Bot(
     status=getattr(discord.Status, config.STATUS),
     activity=config.ACTIVITY,
     owner_ids=config.OWNER_IDS,
-#    help_command=HelpCommand()
+    help_command=HelpCommand()
 )
 
 
@@ -48,6 +49,23 @@ async def on_ready():
 async def on_message(msg: discord.Message):
     if msg.author == bot.user or msg.content.startswith("~"): return
     await bot.process_commands(msg)
+
+@bot.event
+async def on_disconnect():
+    if config.CONNECTED:
+        config.CONNECTED = False
+        logging.error("The bot has been disconnected")
+
+@bot.event
+async def on_connect():
+    if not config.CONNECTED:
+        config.CONNECTED = True
+        logging.info("The bot has been connected")
+
+@bot.event
+async def on_resumed():
+    logging.info("Bot resumed session")
+
 
 # loading extensions
 logging.info("Loading extensions")

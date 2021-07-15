@@ -16,7 +16,7 @@ from functions import *
 class GMO_News(commands.Cog):
 
     """
-    Checks the gmo homepage news every %s seconds
+    Checks the news on [gmo homepage](https://www.gymnasium-oberstadt.de) and sends them into the <#835286457325322281>­channel
     """
 
     NO_TEXT_TAG = ["img", "video"]
@@ -44,7 +44,7 @@ class GMO_News(commands.Cog):
             try:
                 for i, e in enumerate(article, start=0):
                     if i == 0:
-                        content = "<@&%s>" % config.ROLES["developer"]["id"]
+                        content = "<@&%s>" % config.ROLES["gmo"]["id"]
                     else:
                         content = None
 

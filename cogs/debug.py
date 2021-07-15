@@ -61,7 +61,7 @@ class Debug(commands.Cog):
                 ))
             else:
                 successfully.append(name)
-                logging.debug("Reloaded extension %s" % name)
+                logging.log(25, "Reloaded extension %s" % name)
 
         if successfully:
             await ctx.send(
@@ -85,7 +85,7 @@ class Debug(commands.Cog):
                 ))
             else:
                 successfully.append(name)
-                logging.info("Unloaded extension %s" % name)
+                logging.log(25, "Unloaded extension %s" % name)
 
         if successfully:
             await ctx.send(
@@ -109,7 +109,7 @@ class Debug(commands.Cog):
                 ))
             else:
                 successfully.append(name)
-                logging.info("Laded extension %s" % name)
+                logging.log(25, "Laded extension %s" % name)
 
         if successfully:
             await ctx.send(

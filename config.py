@@ -41,6 +41,8 @@ INTERVAL: int = data["news"]["check_interval"]
 
 ROLES: dict[str, dict[str, Union[int, str]]] = data["roles"]
 
+TEAMWORK_FILE: str = data["teamwork_file"]
+
 # for discord
 EMPTY_CHAR = "\u200B"  # symbol: "­"
 PREV_PAGE_EMOJI: str = chr(9664)
@@ -59,6 +61,7 @@ DAYS = ["Montag", "Dienstag", "Mittwoch", "Donnerstag", "Freitag", "Samstag", "S
 
 # runtime
 FILE_FP: list = []
+CONNECTED: bool = True
 
 # colors
 class COLOR(object):

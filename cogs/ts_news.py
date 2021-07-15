@@ -13,7 +13,7 @@ from functions import *
 class TS_News(commands.Cog):
 
     """
-    Checks news from the (tagesschau)[https://www.tagesschau.de/] using their api2
+    Checks news from the [tagesschau](https://www.tagesschau.de/) using their api2
     """
 
     def __init__(self, bot: commands.Bot):
@@ -40,7 +40,7 @@ class TS_News(commands.Cog):
             await news_channel.send(embed=article)
 
         if len(articles):
-            logging.info("Sent %i atricles" % len(articles))
+            logging.info("Sent %i ts atricles" % len(articles))
     
     @ts_news_loop.before_loop
     async def before_ts_news_loop(self):

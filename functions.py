@@ -14,14 +14,15 @@ import config
 
 LINK_DESTROYER = list(" \n\\<>'\"")
 
-async def report_error(bot: commands.Bot, e: BaseException, log_level=logging.WARN) -> None:
-    logging.log(level=log_level, msg="\n" + ''.join(
-        traceback.format_exception(
-            etype=type(e),
-            value=e,
-            tb=e.__traceback__
-        )
-    ))
+async def report_error(bot: commands.Bot, e: BaseException, log_level=logging.WARN, console: bool=True) -> None:
+    if console:
+        logging.log(level=log_level, msg="\n" + ''.join(
+            traceback.format_exception(
+                etype=type(e),
+                value=e,
+                tb=e.__traceback__
+            )
+        ))
     if (c := bot.get_channel(config.LOG_CHANNEL_ID)) is None:
         logging.error("Getting channel with id '%s' failed" % config.LOG_CHANNEL_ID)
         return
@@ -472,6 +473,12 @@ def get_random_pfp(bot: commands.Bot):
     if u is None:
         return "https://discord.com/assets/847541504914fd33810e70a0ea73177e.ico"
     return u.avatar_url._url
+
+
+def color_embeds(embeds: Union[list[discord.Embed], tuple[discord.Embed]], *, color):
+    for e in embeds:
+        e.color = color
+    return embeds
 
 
 logging.info("functions was loaded successfully")
