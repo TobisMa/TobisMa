@@ -63,6 +63,9 @@ DAYS = ["Montag", "Dienstag", "Mittwoch", "Donnerstag", "Freitag", "Samstag", "S
 FILE_FP: list = []
 CONNECTED: bool = True
 
+# emojis
+CHECK_MARK = "\u2705"  # discord's white check mark
+
 # colors
 class COLOR(object):
 

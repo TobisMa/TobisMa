@@ -57,7 +57,7 @@ class Debug(commands.Cog):
             except (ExtensionError, ModuleNotFoundError) as e:
                 await ctx.send(embed=embed_error(
                     error=e,
-                    bot=self.bot.user
+                    bot=self.bot.user,
                 ))
             else:
                 successfully.append(name)
@@ -268,18 +268,26 @@ class Debug(commands.Cog):
             if result.name == "config":
                 result = config
         
-        answer = pyformat(result)[:2000]
+        answer = pyformat(result)[:1991]
         try:
             # send result in embed in an code block with python highlighting
             await ctx.send(embed=embed_message(
                 title="Console output",
-                description=answer,
+                description="```py\n" + answer + "```",
                 color="teal",
                 author=self.bot.user
             ))
         except HTTPException as e:
             traceback.print_exception(type(e), e, e.__traceback__)
 
+
+def get_category(categories: list[discord.CategoryChannel], *, id=None, name=None) -> Optional[discord.CategoryChannel]:
+    for category in categories:
+        if category.name == name or name is None:
+            if category.id == id or id is None:
+                return category
+
+    return None
 
 def setup(bot):
     bot.add_cog(Debug(bot))

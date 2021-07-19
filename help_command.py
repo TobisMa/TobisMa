@@ -226,7 +226,7 @@ class HelpCommand(commands.HelpCommand):
         return d
 
     async def send_group_help(self, group):
-        await self.get_destination.send("%s TODO")  # TODO make group command help 
+        await self.get_destination().send("%s TODO" % self.ctx.author.id)  # type: ignore ; # TODO make group command help 
     
     async def send_error_message(self, error):
         await self.get_destination().send(embed=embed_message(

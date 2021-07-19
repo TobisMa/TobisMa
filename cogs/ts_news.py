@@ -80,7 +80,8 @@ class TS_News(commands.Cog):
                     description=article["firstSentence"],
                     url=await self.get_link(article),
                     image=await self.get_image(article),
-                    color=config.COLOR.ORANGE
+                    color=config.COLOR.ORANGE,
+                    timestamp=article["date"]
                 ))
                 await self.save_article(article["externalId"])
 

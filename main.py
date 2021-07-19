@@ -1,8 +1,9 @@
+from functions import embed_message, report_error
 import logging
 
 import discord
 from discord.ext import commands
-from discord.ext.commands.errors import ExtensionError
+from discord.ext.commands.errors import ConversionError, ExpectedClosingQuoteError, ExtensionError, InvalidEndOfQuotedStringError, UnexpectedQuoteError
 
 import config
 from help_command import HelpCommand
@@ -48,6 +49,7 @@ async def on_ready():
 @bot.event
 async def on_message(msg: discord.Message):
     if msg.author == bot.user or msg.content.startswith("~"): return
+
     await bot.process_commands(msg)
 
 @bot.event
@@ -65,6 +67,40 @@ async def on_connect():
 @bot.event
 async def on_resumed():
     logging.info("Bot resumed session")
+
+@bot.event
+async def on_error(error, *args, **kwargs):
+    await report_error(bot, error, logging.ERROR, console=True, args=args, kwargs=kwargs)
+
+@bot.event
+async def on_command_error(ctx, error: BaseException):
+    if isinstance(error, ConversionError):
+        await ctx.send(embed=embed_message(
+            title="<@%s> Parse error" % ctx.author.id,
+            description="Please try to use the command again. If that doesn't work use `-help %s` and show how to use the command" % ctx.invoked_with,
+            color=config.COLOR.ERROR,
+            thumbnail=ctx.author.avatar_url
+        ))
+    elif isinstance(error, (ExpectedClosingQuoteError, InvalidEndOfQuotedStringError, UnexpectedQuoteError)):
+        await ctx.send(embed=embed_message(
+            title="<@%s> Quotes",
+            description="If you use quotes please be sure to have an start and end quote.",
+            color=config.COLOR.ERROR,
+            thumbnail=ctx.author.avatar_url
+        ))
+    
+    else:
+        await on_error(error)
+        await ctx.send(embed=embed_message(
+            title="Unforeseen error",
+            description="An error occured as you used the command. Please try again. If it doesn't work either, contact me on dc'",
+            color=config.COLOR.ERROR
+        ))
+
+
+@bot.command()
+async def test():
+    raise ConversionError("fjdk", 1234)
 
 
 # loading extensions

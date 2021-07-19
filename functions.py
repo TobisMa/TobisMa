@@ -1,45 +1,53 @@
 import ast
+import asyncio
 import json
 import logging
+from os import error
 import random
 import traceback
 from datetime import datetime
 from types import MappingProxyType
-from typing import Annotated, Any, Iterable, Literal, Mapping, Optional, Union
+from typing import Annotated, Any, Iterable, Literal, Mapping, Optional, Type, Union
 
 import discord
+from discord.embeds import Embed, _EmptyEmbed, EmptyEmbed
 from discord.ext import commands
 
 import config
 
 LINK_DESTROYER = list(" \n\\<>'\"")
 
-async def report_error(bot: commands.Bot, e: BaseException, log_level=logging.WARN, console: bool=True) -> None:
+async def report_error(bot: commands.Bot, e: BaseException, 
+    log_level=logging.WARN, console: bool=True, channel_id: int = config.LOG_CHANNEL_ID,
+    **extra
+) -> None:
+    logging.info("Report error '%s'" % type(e), extra={"in_console": console})
     if console:
         logging.log(level=log_level, msg="\n" + ''.join(
             traceback.format_exception(
                 etype=type(e),
                 value=e,
                 tb=e.__traceback__
-            )
-        ))
-    if (c := bot.get_channel(config.LOG_CHANNEL_ID)) is None:
-        logging.error("Getting channel with id '%s' failed" % config.LOG_CHANNEL_ID)
-        return
-
-    await c.send(embed=embed_error(error=e))
+            ),
+        ), extra=extra)
+    logging.debug("Lol")
+    if (c := bot.get_channel(channel_id)) is None:
+        logging.error("Getting channel with id '%s' failed" % channel_id)
+    else:
+        await c.send(embed=embed_error(error=e, **extra))
     
 
 def embed_message(*,
     title: str,
-    description: str,
+    description: Union[str, _EmptyEmbed] = EmptyEmbed,
     color: Optional[Union[discord.Color, str]] = None,
-    author: Optional[Union[discord.User, discord.Member, str, Annotated[Iterable[str], 2], discord.ClientUser]] = None,
+    author: Optional[Union[discord.User, discord.Member, str, tuple[str, str], list[str], discord.ClientUser]] = None,
     timestamp: Union[datetime, bool] = True,
     image: Optional[str] = None,
+    thumbnail: Optional[str] = None,
     url: Optional[str] = None,
 #    video: Optional[dict[str, Union[str, int]]] = None,
-    fields: Iterable[Union[tuple[str, str], tuple[str, str, bool], Annotated[list[str], 2], dict[str, Union[str, bool]]]] = ()
+    fields: Iterable[Union[tuple[str, str], tuple[str, str, bool], list[Union[str, bool]], dict[str, Union[str, bool]]]] = ()
 ) -> discord.Embed:
     embed = discord.Embed()
 
@@ -85,9 +93,15 @@ def embed_message(*,
         if isinstance(timestamp, datetime):
             embed.timestamp = timestamp
 
+    # image
     if image:
         embed.set_image(url=str(image))
     
+    # thumbnail
+    if thumbnail is not None:
+        embed.set_thumbnail(url=thumbnail)
+
+    # link in title
     if url:
         embed.url = str(url)
 
@@ -320,7 +334,7 @@ def skip(text: str, length: int = 2000) -> str:
     return text
 
 
-def embed_error(*, error: BaseException, color: discord.Color = config.COLOR.RED, bot=None) -> discord.Embed:
+def embed_error(error: BaseException, *, color: discord.Color = config.COLOR.RED, bot=None, **extra) -> discord.Embed:
     return embed_message(
         title="An '%s'-exception occured" % type(error),
         description=("```py\n" + ''.join(
@@ -329,7 +343,7 @@ def embed_error(*, error: BaseException, color: discord.Color = config.COLOR.RED
                 value=error,
                 tb=error.__traceback__
             )
-        ) + "```")[-2000:],
+        ) + "\n\n" + pythonize_json(json.dumps(extra, indent=2)) + "```")[-2000:],
         color=color,
         author=getattr(bot, "user", "TobisMa"),
     )
@@ -468,7 +482,7 @@ def insert_ast_returns(body) -> None:
         insert_ast_returns(body[-1].body)
 
 
-def get_random_pfp(bot: commands.Bot):
+def get_random_pfp(bot: commands.Bot) -> Union[str, None]:
     u: Optional[discord.User] = bot.get_user(random.choice(config.OWNER_IDS))
     if u is None:
         return "https://discord.com/assets/847541504914fd33810e70a0ea73177e.ico"
@@ -479,6 +493,86 @@ def color_embeds(embeds: Union[list[discord.Embed], tuple[discord.Embed]], *, co
     for e in embeds:
         e.color = color
     return embeds
+
+
+async def ask_by_reaction(bot: commands.Bot, channel: discord.abc.Messageable, reactions: list[Union[discord.Emoji, str]],
+    *, 
+    embed: discord.Embed = None, 
+    content: str = None, 
+    user: Optional[discord.User] = None
+) -> list[bool]:
+    def check_reaction(reaction: discord.Reaction, _user: discord.User) -> bool:
+        if reaction.emoji in reactions or reaction.emoji == config.CHECK_MARK:
+            if user is None:
+                return True
+            if user.id == _user.id:
+                return True
+        return False
+
+    msg: discord.Message = await channel.send(
+        content=content,
+        embed=embed
+    )
+
+    for emoji in reactions:
+        await msg.add_reaction(emoji)
+    await msg.add_reaction(config.CHECK_MARK)
+    
+    pressed: list[bool] = [False] * len(reactions)
+    confirmed = False
+    reaction_adds: list[tuple[discord.Reaction, discord.User]] = []
+
+    reaction: discord.Reaction
+    intern_user: discord.User
+
+    while not confirmed:
+        try:
+            reaction, intern_user = await bot.wait_for("reaction_add", timeout=60, check=check_reaction)
+            reaction_adds.append((reaction, intern_user))
+        except asyncio.TimeoutError:
+            # TODO info message
+            return pressed
+        else:
+            if reaction.emoji == config.CHECK_MARK:
+                confirmed = True
+            else:
+                for i, emoji in enumerate(reactions, start=0):
+                    if emoji == reaction.emoji:
+                        pressed[i] = True
+
+    for r in reversed(reaction_adds):
+        await r[0].remove(r[1])
+
+    return pressed
+
+
+def pythonize_json(jsn: str) -> str:
+    return jsn.replace(": true,", ": True,").replace(": false,", ": False,").replace(": null,", ": None,")
+
+
+async def ask_for_message(bot: commands.Bot, channel: discord.abc.Messageable,
+    *,
+    embed: discord.Embed = None,
+    content: str = None,
+    user: Optional[Union[discord.User, discord.Member]] = None
+) -> Optional[discord.Message]:
+    def check_message(msg: discord.Message) -> bool:
+        if msg.channel == channel:
+            if user is None: return True
+            elif user == msg.author: return True
+        return False
+
+    await channel.send(
+        content=content,
+        embed=embed
+    )
+    try:
+        msg = await bot.wait_for("message", timeout=120)
+    except asyncio.TimeoutError:
+        ... # TODO info message
+        return None
+    else:
+        return msg
 
 
 logging.info("functions was loaded successfully")
