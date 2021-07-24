@@ -1,7 +1,7 @@
 import json
 import logging
 from re import fullmatch
-from string import ascii_letters, punctuation
+from string import ascii_letters, ascii_lowercase, ascii_uppercase, digits, punctuation
 from typing import Union
 
 import config
@@ -22,7 +22,7 @@ class Teamwork(commands.Cog):
     def __init__(self, bot: commands.Bot) -> None:
         commands.Cog.__init__(self)
         self.bot = bot
-        self.group_data = {}
+        self.group_data: dict[str, list[dict[str, Any]]] = {}
 
     @commands.group(
         name="tm",
@@ -77,11 +77,11 @@ class Teamwork(commands.Cog):
              "they will be removed without notice"
     )
     async def tm_create(self, ctx, name: str, *who_as_mentions: str):
-        name = name.lower()
+        name = self.transform_to_dc_channel_name(name)
         if self.has_group(ctx.author.id, name):
             await ctx.send(embed=embed_message(
                 title="Team '%s' does already exist" % name,
-                description="<@%s> Please try another name or delete/edit the current team '%s'" % (ctx.author.id, name),
+                description="<@%i> Please try another name or delete/edit the current team '%s'" % (ctx.author.id, name),
                 color=config.COLOR.ERROR
             ))
             return
@@ -107,7 +107,7 @@ class Teamwork(commands.Cog):
                 Teamwork.DESCRIPTION_EMOJI
             ],
             embed=embed_message(
-                title="<@%s> Create group/team `%s`" % (ctx.author.id, name),
+                title="<@%i> Create group/team `%s`" % (ctx.author.id, name),
                 description=f"Please select which parameter you want to specify:"
                         	f"{Teamwork.DESCRIPTION_EMOJI}: Edit description",
                 fields=[
@@ -123,13 +123,13 @@ class Teamwork(commands.Cog):
                 self.bot, ctx.channel,
                 embed=embed_message(
                     title="Description of '%s'" % name,
-                    description="<@%s> Please send the description of the team/group in this channel in your next message" % ctx.author.id,
+                    description="<@%i> Please send the description of the team/group in this channel in your next message" % ctx.author.id,
                     color=Teamwork.COLOR
                 )
             )
             if reply is None:
                 await ctx.send(embed=embed_message(
-                    title="<@%s> >> Info",
+                    title="<@%i> >> Info",
                     description="You did not enter the description of the team '%s' within 120s, so no description will be set. " \
                                 "To change the description, use `-tm edit <what>`. `<what>` is in this case _`description`_",
                     color=config.COLOR.INFO
@@ -137,7 +137,7 @@ class Teamwork(commands.Cog):
 
             elif not reply.content:
                 await ctx.send(
-                    content="<@%s>" % ctx.author.id, 
+                    content="<@%i>" % ctx.author.id, 
                     embed=embed_message(
                         title="Setting description failed",
                         description="Description of team cannot be empty",
@@ -166,6 +166,7 @@ class Teamwork(commands.Cog):
                 )
             },
             category=get_category(guild.categories, id=Teamwork.CATEGORY_ID),
+            topic=description
         )
 
         for m_id in [int(x.strip(ascii_letters + punctuation)) for x in group_members]:
@@ -187,9 +188,64 @@ class Teamwork(commands.Cog):
 
         await ctx.send(embed=embed_message(
             title="Team '%s'" % name,
-            description="<@%s> Your team '%s' was successfully added.\nchannel: <#%s>" % (ctx.author.id, name, channel.id),
+            description="<@%i> Your team '%s' was successfully added.\nchannel: <#%s>" % (ctx.author.id, name, channel.id),
             color=Teamwork.COLOR
         ))
+
+    @tm.command(
+        name="delete",
+        aliases=["del", "remove"]
+    )
+    async def tm_delete(self, ctx, name: str):
+        name = self.transform_to_dc_channel_name(name)
+        if not self.has_group(ctx.author.id, name):
+            await ctx.send(embed=embed_message(
+                title="Team not found",
+                description="The team '%s' was not found. Please check that you spelled it correctly." % name,
+                color=config.COLOR.ERROR
+            ))
+            return
+        
+        guild: discord.Guild = ctx.guild
+        role = await guild.fetch_roles()
+        for r in role:
+            if r.name == (name + str(ctx.author.id)):
+                await r.delete()
+                break
+        else:
+            await ctx.send(embed=embed_message(
+                title="Internal error",
+                description="Deleting team '%s' failed. Please contact <@%i>" % (name, config.OWNER_IDS[0]),
+                color=config.COLOR.ERROR
+            ))
+            return
+        
+        channels = await guild.fetch_channels()
+        team_json = await self.get_json_from_team(ctx.author.id, name)
+
+        if team_json is None:
+            await ctx.send(embed=embed_message(
+                title="Internal error",
+                description="Deleting team '%s' failed. Please contact <@%i>" % (name, config.OWNER_IDS[0]),
+                color=config.COLOR.ERROR
+            ))
+            return
+
+        for c in channels:
+            if c.id == team_json["channel_id"] and isinstance(c, discord.TextChannel):
+                await c.delete()
+
+        await self.remove_team_from_json(ctx.author.id, name)
+
+        logging.debug("Deleted team '%s' from json" % name)
+
+        await ctx.send(embed=embed_message(
+            title="Deleted team",
+            description="The team '%s' was deleted successfully" % name,
+            color=Teamwork.COLOR
+        ))
+
+        logging.debug("Deleted team '%s' successfully" % name)
 
     async def cog_before_invoke(self, ctx):
         self.group_data = json.load(open(config.TEAMWORK_FILE, "r"))
@@ -207,7 +263,6 @@ class Teamwork(commands.Cog):
             jsn = json.load(open(config.TEAMWORK_FILE, "r"))
             if len(jsn[key]) == Teamwork.MAX_GROUPS:
                 raise TeamCreationError(TeamCreationError.TOO_MANY)
-
 
     async def get_group_summary(self, group: dict[str, Union[str, list, int]]) -> str:
         return "TODO"  # TODO this function
@@ -233,13 +288,40 @@ class Teamwork(commands.Cog):
     async def cog_after_invoke(self, ctx):
         self.group_data = json.load(open(config.TEAMWORK_FILE, "r"))
 
-    def has_group(self, id: int, group_name: str) -> bool:
-        ts: list[dict] = self.group_data[str(id)]
+    def has_group(self, user_id: int, group_name: str) -> bool:
+        ts: list[dict] = self.group_data[str(user_id)]
         for t in ts:
             if t["name"] == group_name:
                 return True
         return False
 
+    def transform_to_dc_channel_name(self, name: str) -> str:
+        nname = ""
+        name = name.lower()
+        for sym in name:
+            if sym in ascii_lowercase + digits + config.ALLOWED_SYMBOLS_IN_CHANNEL_NAME:
+                nname += sym
+
+        return nname
+
+    async def get_json_from_team(self, user_id: int, name: str) -> Optional[dict[str, Any]]:
+        teams = self.group_data[str(user_id)]
+        for tj in teams:
+            if tj["name"] == name:
+                return tj
+        return None
+
+    async def remove_team_from_json(self, user_id: int, name: str) -> None:
+        user_teams = self.group_data[str(user_id)]
+        new_user_teams = []
+        for team in user_teams:
+            if team["name"] != name:
+                new_user_teams.append(team)
+        
+        self.group_data[str(user_id)] = new_user_teams
+
+        with open(config.TEAMWORK_FILE, "w") as f:
+            f.write(json.dumps(self.group_data, indent=4, sort_keys=True))
 
 def setup(bot):
     bot.add_cog(Teamwork(bot))

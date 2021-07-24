@@ -58,6 +58,7 @@ JSON_AND_PY_KWDS: list[tuple[str, str]] = [
     ("null", "None")
 ]
 DAYS = ["Montag", "Dienstag", "Mittwoch", "Donnerstag", "Freitag", "Samstag", "Sonntag"]
+ALLOWED_SYMBOLS_IN_CHANNEL_NAME = "-$`´µ"
 
 # runtime
 FILE_FP: list = []
