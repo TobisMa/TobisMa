@@ -91,7 +91,11 @@ class TS_News(commands.Cog):
         return article["externalId"] in self.external_ids
 
     async def get_image(self, article: dict[str, Any]) -> Optional[str]:
-        images = article["teaserImage"]
+        try:
+            images = article["teaserImage"]
+        except KeyError:
+            return None
+            
         try:
             return images["videowebl"]["imageurl"]
         except KeyError:

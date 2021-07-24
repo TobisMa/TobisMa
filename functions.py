@@ -1,5 +1,6 @@
 import ast
 import asyncio
+from errors import NoFilterSetError
 import json
 import logging
 from os import error
@@ -21,20 +22,19 @@ async def report_error(bot: commands.Bot, e: BaseException,
     log_level=logging.WARN, console: bool=True, channel_id: int = config.LOG_CHANNEL_ID,
     **extra
 ) -> None:
-    logging.info("Report error '%s'" % type(e), extra={"in_console": console})
     if console:
-        logging.log(level=log_level, msg="\n" + ''.join(
-            traceback.format_exception(
-                etype=type(e),
-                value=e,
-                tb=e.__traceback__
-            ),
-        ), extra=extra)
-    logging.debug("Lol")
-    if (c := bot.get_channel(channel_id)) is None:
-        logging.error("Getting channel with id '%s' failed" % channel_id)
-    else:
-        await c.send(embed=embed_error(error=e, **extra))
+        logging.log(log_level, "Report error '%s' with value '%s'" % (type(e), str(e)), extra={"in_console": console})
+        traceback.print_exception(
+            etype=type(e),
+            value=e,
+            tb=e.__traceback__
+        )
+    
+    channel = bot.get_channel(channel_id)
+    if channel is None:
+        logging.error("Failed to get channel with id %s" % channel_id)
+        return
+    await channel.send(embed=embed_error(e, bot=bot), **extra)
     
 
 def embed_message(*,
@@ -573,6 +573,17 @@ async def ask_for_message(bot: commands.Bot, channel: discord.abc.Messageable,
         return None
     else:
         return msg
+
+
+def get_category(categories: Iterable[discord.CategoryChannel], *, name=None, id=None) -> Optional[discord.CategoryChannel]:
+    if name is None and id is None:
+        raise NoFilterSetError("You need to set at least one filter (id or name)")
+ 
+    for category in categories:
+        if category.name == name or name is None:
+            if category.id == id or id is None:
+                return category
+    return None
 
 
 logging.info("functions was loaded successfully")

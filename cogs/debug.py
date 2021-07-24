@@ -1,5 +1,8 @@
 import ast
 import logging
+import os
+import sys
+import tracemalloc
 from typing import Optional
 
 import config
@@ -126,7 +129,7 @@ class Debug(commands.Cog):
             "config.reload to reaload the config once\n" \
             "To see more variables look at the project on https://github.com/TobisMa/discordbot"
     )
-    async def execute(self, ctx, prgm: str) -> Any:
+    async def execute(self, ctx, *, prgm: str) -> Any:
         """Executes the program"""
         prgm = parse_prgm(prgm)
         prgm = CodeString(prgm)
@@ -174,7 +177,7 @@ class Debug(commands.Cog):
             prgm = "\n".join(prgm.split("\n")[1:])
 
         # add a layer of indentation
-        prgm = "\n".join(f"    {i}" for i in prgm.splitlines())
+        prgm = "\n".join(["  " + l for l in prgm.splitlines()])
 
         # wrap in async def body
         body = f"async def {fn_name}():\n{prgm}"
@@ -234,9 +237,11 @@ class Debug(commands.Cog):
             vars["config"] = config_   # type: ignore for pylance
         
         vars["help"] = not_allowed("you do not need to use help(...). You are an developer. you are such a ばか <@%s>" % ctx.author.id)
-        vars["print"] = not_allowed("Use `await ctx.send('Your message')` instead of `print(...)`")
+        vars["print"] = dc_print(ctx.channel, ctx.author)
         
+        tracemalloc.start()
         exec(compile(parsed, filename="<ast>", mode="exec"), vars)
+        tracemalloc.stop()
 
         # run the functiion defined with exec
         try:
@@ -280,14 +285,18 @@ class Debug(commands.Cog):
         except HTTPException as e:
             traceback.print_exception(type(e), e, e.__traceback__)
 
+    @commands.command(
+        name="restart",
+        aliases=["relaod"],
+        description="Disconnects the bot and stops and then refreshes itself"
+    )
+    @commands.is_owner()
+    async def restart(self):
+        await self.bot.close()
+        logging.info("Disconnected bot from discord")
+        self.bot.run(config.TOKEN)
+        logging.info("Reconnected to discord")
 
-def get_category(categories: list[discord.CategoryChannel], *, id=None, name=None) -> Optional[discord.CategoryChannel]:
-    for category in categories:
-        if category.name == name or name is None:
-            if category.id == id or id is None:
-                return category
-
-    return None
 
 def setup(bot):
     bot.add_cog(Debug(bot))

@@ -184,7 +184,7 @@ class HelpCommand(commands.HelpCommand):
             )
 
         if not cmds:
-            embed.description += "\n\n_```No commands```_"
+            embed.description += "\n\n_```No commands```_"  # type: ignore
 
         embed.set_footer(
             text="Tobias",

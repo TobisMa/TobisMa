@@ -1,13 +1,13 @@
-from cogs.debug import get_category
 import json
 import logging
+from re import fullmatch
 from string import ascii_letters, punctuation
 from typing import Union
 
 import config
 import discord
 from discord.ext import commands
-from errors import TeamCreationError
+from errors import *
 from functions import *
 
 
@@ -77,6 +77,7 @@ class Teamwork(commands.Cog):
              "they will be removed without notice"
     )
     async def tm_create(self, ctx, name: str, *who_as_mentions: str):
+        name = name.lower()
         if self.has_group(ctx.author.id, name):
             await ctx.send(embed=embed_message(
                 title="Team '%s' does already exist" % name,
@@ -85,6 +86,12 @@ class Teamwork(commands.Cog):
             ))
             return
 
+        if fullmatch(r"<@[0-9]+>", name):
+            await ctx.send(embed=embed_message(
+                title="No name given",
+                description="You need to give a name to ypur team",
+                color=config.COLOR.ERROR
+            ))
         group_members: list[str] = ["<@!%s>" % ctx.author.id]
         description: str = "_No description_"
 
@@ -162,9 +169,11 @@ class Teamwork(commands.Cog):
         )
 
         for m_id in [int(x.strip(ascii_letters + punctuation)) for x in group_members]:
-            m: Optional[discord.Member] = guild.get_member(m_id)
+            m: Optional[discord.Member] = await guild.fetch_member(m_id)
             if m is not None:
                 await m.add_roles(role, reason="You were added to the team %s by %s" % (name, ctx.author))
+            else:
+                logging.debug("Member with id %s was not found" % m_id)
 
         await self.add_group_in_file(
             name=name,

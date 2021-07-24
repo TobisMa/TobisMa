@@ -137,7 +137,7 @@ class GMO_News(commands.Cog):
                 date = soup.find(class_="datum")
                 if date is None:
                     raise NewsError("Date could not be read from a NoneType-obj")
-                if element["version"] == date.text:
+                if element["version"] == date.text:  # type: ignore
                     return True
 
         return False
@@ -152,18 +152,18 @@ class GMO_News(commands.Cog):
         embeds: list = []
         at_embed: int = 0
         child: HTMLTag
-        for i, child in enumerate(article_div.children, start=0):
+        for i, child in enumerate(article_div.children, start=0):  # type: ignore
             if i <= 1 or child.name is None:
                 continue
             
             if at_embed == len(embeds):
                 embeds.append(discord.Embed(title=config.EMPTY_CHAR))
             
-            in_child = [x for x in child.children if x.name]
+            in_child = [x for x in child.children if x.name]  # type: ignore
             
             inner_child = ""  # type: ignore
             if len(in_child) == 1:
-                inner_child: HTMLTag = in_child[0]
+                inner_child: HTMLTag = in_child[0]  # type: ignore
 
             if getattr(inner_child, "name", "") in GMO_News.NO_TEXT_TAG:
                 if inner_child.name == "img":
@@ -187,11 +187,11 @@ class GMO_News(commands.Cog):
                 else:
                     embeds[at_embed].add_field(name=config.EMPTY_CHAR, value=skip(fp, 1024), inline=False)
         try:
-            embeds[0].title = article_div.find("p", class_="titel").find("a", text=True).text
+            embeds[0].title = article_div.find("p", class_="titel").find("a", text=True).text  # type: ignore
         except Exception as e:
             embeds[0].title = "Error: " + str(e)
 
-        embeds[0].url = article_div.find("p", class_="titel").find("a", href=True)["href"]
+        embeds[0].url = article_div.find("p", class_="titel").find("a", href=True)["href"]  # type: ignore
         if isinstance(embeds[-1], list):
             embeds[-1][0].set_footer(
                 text=config.GMO_NEWS_AUTHOR[0],

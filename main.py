@@ -1,4 +1,6 @@
-from functions import embed_message, report_error
+import json
+import traceback
+from functions import embed_message, pythonize_json, report_error
 import logging
 
 import discord
@@ -46,11 +48,10 @@ async def on_ready():
     logging.info("Bot has been started and is active")
 
 
-@bot.event
-async def on_message(msg: discord.Message):
+@bot.listen("on_message")
+async def on_message_event_handler(msg: discord.Message):
     if msg.author == bot.user or msg.content.startswith("~"): return
 
-    await bot.process_commands(msg)
 
 @bot.event
 async def on_disconnect():
@@ -69,8 +70,21 @@ async def on_resumed():
     logging.info("Bot resumed session")
 
 @bot.event
-async def on_error(error, *args, **kwargs):
-    await report_error(bot, error, logging.ERROR, console=True, args=args, kwargs=kwargs)
+async def on_error(event, *args, **kwargs):
+    logging.error("Error in event '%s' with args '%s' and kwargs '%s'" % (event, args, kwargs))
+    channel =  bot.get_channel(config.LOG_CHANNEL_ID)
+
+    if channel is None:
+        logging.warning("Could not find channel with id %s" % config.LOG_CHANNEL_ID)
+        return
+
+    await channel.send(
+        embed=embed_message(
+            title="Error in event '%s'" % event,
+            description="Args: \n" + '\n'.join(str(x) for x in args) + "\nKwargs: \n" + pythonize_json(json.dumps(kwargs)),
+            color=config.COLOR.ERROR,
+        )
+    )
 
 @bot.event
 async def on_command_error(ctx, error: BaseException):
