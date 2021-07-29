@@ -3,3 +3,4 @@ __pycache__
 data/**
 *.db
 .vscode
+web_checker.py

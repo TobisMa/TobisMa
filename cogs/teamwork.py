@@ -413,11 +413,13 @@ class Teamwork(commands.Cog):
             role = await get_role(guild, name=team["name"] + str(ctx.author.id))
 
             if role is None:
-                ... # TODO error message
+                await ctx.send(embed=embed_message(
+                    title="Error",
+                    description="Role not found. Please try again. If that not works contact <@%i>" % config.OWNER_IDS[0]
+                ))
                 return 
 
             for m in members_to_edit:
-                # TODO adding and removeing the role
                 member = await ctx.guild.fetch_member(m.strip(punctuation))
 
                 if str(ctx.author.id) in m:
@@ -546,8 +548,16 @@ class Teamwork(commands.Cog):
             if len(jsn[key]) == Teamwork.MAX_GROUPS:
                 raise TeamCreationError(TeamCreationError.TOO_MANY)
 
-    async def get_group_summary(self, group: dict[str, Union[str, list, int]]) -> str:
-        return "TODO"  # TODO this function
+    async def get_group_summary(self, group: dict[str, Any]) -> str:
+        description: str = group["description"]
+        if len(description) > 20:
+            description = description[:-3] + "..."
+
+        text = ""
+        text += "**Name**: %s" % group["name"]
+        text += "\n**Description**: %s" % description
+        text += "\n**Member**: %s" % (' '.join(group["members"] if ' '.join(group["members"]) else "_error: no members_"))
+        return text
 
     async def add_group_in_file(self, *, 
         name: str, members: list[str], owner_id: int,  channel_id: int, description: str = "_No description_"
