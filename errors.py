@@ -20,3 +20,4 @@ class TeamCreationError(BotError):
     def __init__(self, *args, code=None):
         BotError.__init__(self, *args)
         self.code = code
+class TeamEditError(BotError): ...

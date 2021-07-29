@@ -131,6 +131,17 @@ def embed_message(*,
     return embed
 
 
+def embed_command_error_msg(title: str, description: str, author: Optional[Union[discord.User]]=None, code=None, fields=[]) -> discord.Embed:
+    return embed_message(
+        title=title + " #%i" % code if code else title,
+        description=description,
+        timestamp=datetime.utcnow(),
+        color=config.COLOR.ERROR,
+        author=author,
+        fields=fields
+    )
+
+
 def secure_link(link: str) -> str:
     """Converts special symbols in hexa code
 
@@ -502,13 +513,13 @@ async def ask_by_reaction(bot: commands.Bot, channel: discord.abc.Messageable, r
     user: Optional[discord.User] = None
 ) -> list[bool]:
     def check_reaction(reaction: discord.Reaction, _user: discord.User) -> bool:
+        if reaction.message.id != msg.id: return False
         if reaction.emoji in reactions or reaction.emoji == config.CHECK_MARK:
             if user is None:
                 return True
             if user.id == _user.id:
                 return True
         return False
-
     msg: discord.Message = await channel.send(
         content=content,
         embed=embed
@@ -557,6 +568,7 @@ async def ask_for_message(bot: commands.Bot, channel: discord.abc.Messageable,
     user: Optional[Union[discord.User, discord.Member]] = None
 ) -> Optional[discord.Message]:
     def check_message(msg: discord.Message) -> bool:
+        if msg.author.id == bot.user.id: return False  # type:ignore
         if msg.channel == channel:
             if user is None: return True
             elif user == msg.author: return True
@@ -583,6 +595,30 @@ def get_category(categories: Iterable[discord.CategoryChannel], *, name=None, id
         if category.name == name or name is None:
             if category.id == id or id is None:
                 return category
+    return None
+
+
+async def remove_member_role(role: discord.Role, member: discord.Member) -> None:
+    new_roles = []
+    for r in member.roles:
+        if r.id != role.id:
+            new_roles.append(r)
+
+    await member.edit(
+        roles=new_roles
+    )
+
+
+async def add_member_role(role: discord.Role, member: discord.Member, reason: str=None) -> None:
+    await member.add_roles(role, reason=reason)
+
+
+async def get_role(guild: discord.Guild, *, id=None, name=None) -> Optional[discord.Role]:
+    if id is None and name is None:
+        return None
+    for r in await guild.fetch_roles():
+        if r.id == id or r.name == name:
+            return r
     return None
 
 

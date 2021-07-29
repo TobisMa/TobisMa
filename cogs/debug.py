@@ -297,6 +297,18 @@ class Debug(commands.Cog):
         self.bot.run(config.TOKEN)
         logging.info("Reconnected to discord")
 
+    @commands.command(
+        name="ping",
+        aliases=["delay", "speed", "latency"],
+        description="Returns the ping of the bot",
+    )
+    async def ping(self, ctx):  
+        await ctx.send(embed=embed_message(
+            title="Console output",
+            description="Ping: `%s`_`ms`_" % round(self.bot.latency * 1000, 2),
+            color=config.COLOR.INFO
+        ))
+
 
 def setup(bot):
     bot.add_cog(Debug(bot))

@@ -4,10 +4,12 @@ import logging
 from typing import Any, Optional
 
 import aiohttp
+from discord.errors import HTTPException, NotFound
 import config
 import discord
 from discord.ext import commands, tasks
 from functions import *
+from bs4 import BeautifulSoup, element
 
 
 class TS_News(commands.Cog):
@@ -19,7 +21,7 @@ class TS_News(commands.Cog):
     def __init__(self, bot: commands.Bot):
         self.bot = bot
         self.external_ids: list[str] = self.load_external_ids()
-
+        self.important_news_ids: set[str] = set()
         self.ts_news_loop.start()
 
     @tasks.loop(seconds=config.INTERVAL)
@@ -41,6 +43,8 @@ class TS_News(commands.Cog):
 
         if len(articles):
             logging.info("Sent %i ts atricles" % len(articles))
+
+        await self.check_important_news()
     
     @ts_news_loop.before_loop
     async def before_ts_news_loop(self):
@@ -121,6 +125,62 @@ class TS_News(commands.Cog):
             value=id
         )
         self.external_ids = self.load_external_ids()
+
+    async def check_important_news(self) -> None:
+        # NOTE: was never tested
+        async with aiohttp.ClientSession() as session:
+            async with session.get(config.TS_NEWS_BASE_URL) as r:
+                if not r.ok:
+                    try:
+                        channel = self.bot.get_channel(config.LOG_CHANNEL_ID)
+                        if channel is not None:
+                            await channel.send(
+                                embed=embed_message(
+                                    title="Eilmeldungscheck failed",
+                                    description="Something went wrong checking whether new important news were announced or not",
+                                    color=config.COLOR.ERROR
+                                )
+                            )
+                    except HTTPException:
+                        logging.error("Could not report error")
+                    return
+
+                html = await r.text()
+        
+        soup = BeautifulSoup(html, "html.parser")
+        important_news = soup.find_all("div", class_="eilmeldung")
+
+        for n in important_news:
+            logging.debug("Found important news")
+            nsoup = BeautifulSoup(repr(n), "html.parser")
+            link = nsoup.find("a")
+            id = repr(link)
+            if id in self.important_news_ids:
+                continue
+
+            channel = self.bot.get_channel(config.NEWS_CHANNEL_ID)
+            if channel is None:
+                await report_error(
+                    self.bot, NotFound(404, "channel with id '%s' not found" % config.NEWS_CHANNEL_ID),
+                    console=False
+                )
+                return
+            if isinstance(link, element.Tag):
+                await channel.send(embed=embed_message(
+                    title="Eilmeldung",
+                    description=link.text,
+                    color=config.COLOR.RED
+                ))
+                logging.info("Sent important news by text")
+            else:
+                await channel.send(embed=embed_message(
+                    title="Eilmeldung",
+                    description="Eine Eilmeldung ist auf der (Tagesschauseite)[%s] zu finden" % config.TS_NEWS_BASE_URL,
+                    color=config.COLOR.RED
+                ))
+                logging.info("Send important news with link to homepage")
+        
+            self.important_news_ids.add(id)
 
     @classmethod
     def load_external_ids(cls) -> list[str]:

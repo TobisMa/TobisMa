@@ -1,11 +1,11 @@
 import json
 import traceback
-from functions import embed_message, pythonize_json, report_error
+from functions import embed_command_error_msg, embed_message, pythonize_json, report_error
 import logging
 
 import discord
 from discord.ext import commands
-from discord.ext.commands.errors import ConversionError, ExpectedClosingQuoteError, ExtensionError, InvalidEndOfQuotedStringError, UnexpectedQuoteError
+from discord.ext.commands.errors import CommandError, ConversionError, ExpectedClosingQuoteError, ExtensionError, InvalidEndOfQuotedStringError, MissingRequiredArgument, UnexpectedQuoteError, UserInputError
 
 import config
 from help_command import HelpCommand
@@ -48,9 +48,9 @@ async def on_ready():
     logging.info("Bot has been started and is active")
 
 
-@bot.listen("on_message")
-async def on_message_event_handler(msg: discord.Message):
-    if msg.author == bot.user or msg.content.startswith("~"): return
+#@bot.listen("on_message")
+#async def on_message_event_handler(msg: discord.Message):
+#    if msg.author == bot.user or msg.content.startswith("~"): return
 
 
 @bot.event
@@ -70,12 +70,21 @@ async def on_resumed():
     logging.info("Bot resumed session")
 
 @bot.event
-async def on_error(event, *args, **kwargs):
+async def on_error(event: str, *args, **kwargs):
     logging.error("Error in event '%s' with args '%s' and kwargs '%s'" % (event, args, kwargs))
     channel =  bot.get_channel(config.LOG_CHANNEL_ID)
 
     if channel is None:
         logging.warning("Could not find channel with id %s" % config.LOG_CHANNEL_ID)
+        return
+    
+    elif event == "on_command_error":
+        logging.critical("ERROR IN ON_COMMAND_ERROR. NEEDS TO DEBUG")
+        await channel.send("<@&%\u200Bi>" % config.ROLES["developer"]["id"], embed=embed_message(
+            title="Error",
+            description="An error in the `on_command_error`-event occurred.",
+            color=config.COLOR.ERROR
+        ))
         return
 
     await channel.send(
@@ -86,25 +95,52 @@ async def on_error(event, *args, **kwargs):
         )
     )
 
+
 @bot.event
 async def on_command_error(ctx, error: BaseException):
+    if isinstance(ctx.author, discord.Member):
+        user = ctx.author._user
+    else:
+        user = ctx.author
+
+    if not isinstance(error, (CommandError, )):
+        traceback.print_exception(
+            etype=type(error),
+            value=error,
+            tb=error.__traceback__
+        )
+
     if isinstance(error, ConversionError):
-        await ctx.send(embed=embed_message(
-            title="<@%s> Parse error" % ctx.author.id,
+        await ctx.send(embed=embed_command_error_msg(
+            title="Parse error",
             description="Please try to use the command again. If that doesn't work use `-help %s` and show how to use the command" % ctx.invoked_with,
-            color=config.COLOR.ERROR,
-            thumbnail=ctx.author.avatar_url
+            author=user,
+            code=""
         ))
     elif isinstance(error, (ExpectedClosingQuoteError, InvalidEndOfQuotedStringError, UnexpectedQuoteError)):
-        await ctx.send(embed=embed_message(
-            title="<@%s> Quotes",
+        await ctx.send(embed=embed_command_error_msg(
+            title="Quotes",
             description="If you use quotes please be sure to have an start and end quote.",
-            color=config.COLOR.ERROR,
-            thumbnail=ctx.author.avatar_url
+            author=user
+        ))
+    
+    elif isinstance(error, MissingRequiredArgument):
+        await ctx.send(embed=embed_command_error_msg(
+            title="Missing required argument",
+            description="You need to give the command all necessary arguments (see `-help %s`)" % ctx.invoked_with,
+            author=user
+        ))
+    
+    elif isinstance(error, UserInputError):
+        await ctx.send(embed=embed_command_error_msg(
+            title="Command onvoked incorrect",
+            description="Please use commands like this:",
+            fields=[],
+            author=user
         ))
     
     else:
-        await on_error(error)
+        await report_error(bot, error, logging.ERROR)
         await ctx.send(embed=embed_message(
             title="Unforeseen error",
             description="An error occured as you used the command. Please try again. If it doesn't work either, contact me on dc'",
