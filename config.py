@@ -33,9 +33,13 @@ GMO_NEWS_URL: str = data["news"]["url"]["gmo"]
 GMO_NEWS_FILE: str = data["news"]["file"]["gmo"]
 GMO_NEWS_AUTHOR: list[str] = data["news"]["author"]["gmo"]
 
-TS_NEWS_URL: str = data["news"]["url"]["ts"]
+TS_NEWS_URL_RLP: str = data["news"]["url"]["ts-rlp"]
 TS_NEWS_BASE_URL: str = data["news"]["url"]["base_ts"]
 TS_NEWS_FILE: str = data["news"]["file"]["ts"]
+
+TS_NEWS_URL_BW: str = data["news"]["url"]["ts-bw"]
+
+TS_AUTHOR: str = data["news"]["author"]["ts"]
 
 NEWS_CHANNEL_ID: int = data["news"]["channel_id"]
 INTERVAL: int = data["news"]["check_interval"]

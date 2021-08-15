@@ -2,7 +2,6 @@ import json
 import logging
 from re import fullmatch
 from string import ascii_letters, ascii_lowercase, digits, punctuation
-from typing import Union
 
 from discord.errors import HTTPException
 
@@ -451,7 +450,7 @@ class Teamwork(commands.Cog):
                 fields.append(("Removed", sremoved, False))
 
             elif not sadded.strip() and not sremoved.strip():
-                fields.append(("No change", "There wer"))
+                fields.append(("No changes", "The requested changes could not be made or went wrong"))
  
             await ctx.send(embed=embed_message(
                 title="Editing members of team '%s'" % name,
