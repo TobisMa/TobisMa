@@ -291,7 +291,7 @@ class Debug(commands.Cog):
         description="Disconnects the bot and stops and then refreshes itself"
     )
     @commands.is_owner()
-    async def restart(self):
+    async def restart(self, ctx):
         await self.bot.close()
         logging.info("Disconnected bot from discord")
         self.bot.run(config.TOKEN)

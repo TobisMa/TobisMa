@@ -164,10 +164,10 @@ class TS_News(commands.Cog):
             if id in self.important_news_ids:
                 continue
 
-            channel = self.bot.get_channel(config.NEWS_CHANNEL_ID)
+            channel = self.bot.get_channel(self.channel_id)
             if channel is None:
                 await report_error(
-                    self.bot, NotFound(404, "channel with id '%s' not found (%s)" % (config.NEWS_CHANNEL_ID, self.save_path.split("/")[1])),
+                    self.bot, NotFound(404, "channel with id '%s' not found (%s)" % (self.channel_id, self.save_path.split("/")[1])),
                     console=False
                 )
                 return

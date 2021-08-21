@@ -47,13 +47,10 @@ INTERVAL: int = data["news"]["check_interval"]
 ROLES: dict[str, dict[str, Union[int, str]]] = data["roles"]
 
 TEAMWORK_FILE: str = data["teamwork_file"]
+REMINDER_FILE: str = data["reminder_file"]
 
 # for discord
 EMPTY_CHAR = "\u200B"  # symbol: "­"
-PREV_PAGE_EMOJI: str = chr(9664)
-NEXT_PAGE_EMOJI: str = chr(9654)
-STOP_SIGN_EMOJI: str = chr(128721)
-PAGE_EMOJIS: list[str] = [PREV_PAGE_EMOJI, STOP_SIGN_EMOJI, NEXT_PAGE_EMOJI]
 
 # never changing because of discord or user wished for it
 JSON_AND_PY_KWDS: list[tuple[str, str]] = [
@@ -70,7 +67,14 @@ FILE_FP: list = []
 CONNECTED: bool = True
 
 # emojis
-CHECK_MARK = "\u2705"  # discord's white check mark
+PREV_PAGE_EMOJI: str = chr(9664)  # left arrow
+NEXT_PAGE_EMOJI: str = chr(9654)  # right arrow
+STOP_SIGN_EMOJI: str = chr(128721)  # octagonal sign
+REPEAT_EMOJI: str = chr(128257)  # :repeat:
+REPEAT_ONCE_EMOJI: str = chr(128258)  # :repeat_one:
+CANCEL_EMOJI: str = chr(10060)  # :x:  just a red x
+CHECK_MARK = chr(9989)  # discord's white heavy check mark
+PAGE_EMOJIS: list[str] = [PREV_PAGE_EMOJI, STOP_SIGN_EMOJI, NEXT_PAGE_EMOJI]
 
 # colors
 class COLOR(object):
@@ -79,7 +83,7 @@ class COLOR(object):
 
     RED = discord.Color.red()
     DARK_RED = discord.Color.dark_red()
-    BLUE = discord.Color.blue
+    BLUE = discord.Color.blue()
     DARK_BLUE = discord.Color.dark_blue()
     PURPLE = discord.Color.purple()
     DARK_PURPLE = discord.Color.dark_purple()

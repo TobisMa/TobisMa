@@ -131,7 +131,8 @@ class Teamwork(commands.Cog):
                     title="Description of '%s'" % name,
                     description="<@%i> Please send the description of the team/group in this channel in your next message" % ctx.author.id,
                     color=Teamwork.COLOR
-                )
+                ),
+                user=ctx.author
             )
             if reply is None:
                 await ctx.send(embed=embed_message(
@@ -267,7 +268,7 @@ class Teamwork(commands.Cog):
         description="Edits the team/group",
         help="This function allows you to change the members, description and name of the team/group"
     )
-    async def tm_edit(self, ctx, name: str):
+    async def tm_edit(self, ctx, name: str):  # sourcery no-metrics
         name = self.transform_to_dc_channel_name(name)
         if not self.has_group(ctx.author.id, name):
             await ctx.send(embed=embed_message(
@@ -302,7 +303,8 @@ class Teamwork(commands.Cog):
                     title="New name for current team '%s'" % name,
                     description="Please type the new name for the team in your next message",
                     color=Teamwork.COLOR
-                )
+                ),
+                user=ctx.author
             )
             if msg is None or not msg.content:
                 await ctx.send("<@%i>" % ctx.author.id, embed=embed_message(
@@ -336,7 +338,8 @@ class Teamwork(commands.Cog):
                     title="New description",
                     description="Please type the new description of the team '%s' in your next message" % name,
                     color=Teamwork.COLOR
-                )
+                ),
+                user=ctx.author
             )
             if msg is None or not msg.content:
                 await ctx.send("<@%i>" % ctx.author.id, embed=embed_message(
@@ -379,8 +382,9 @@ class Teamwork(commands.Cog):
                         False
                     )
                 ],
-                color=Teamwork.COLOR
-            ))
+                color=Teamwork.COLOR,
+                
+            ), user=ctx.author)
             if msg is None or not msg.content:
                 await ctx.send(embed=embed_message(
                     title="TimeoutError",
@@ -476,10 +480,12 @@ class Teamwork(commands.Cog):
                 channels = await guild.fetch_channels()
 
                 for channel in channels:
-                    if isinstance(channel, discord.TextChannel):
-                        if channel.id == team["channel_id"]:
-                            await channel.edit(topic=new_description)
-                            break
+                    if (
+                        isinstance(channel, discord.TextChannel)
+                        and channel.id == team["channel_id"]
+                    ):
+                        await channel.edit(topic=new_description)
+                        break
 
                 break
 
@@ -500,12 +506,14 @@ class Teamwork(commands.Cog):
                 channels = await guild.fetch_channels()
 
                 for channel in channels:
-                    if isinstance(channel, discord.TextChannel):
-                        if channel.id == team["channel_id"]:
-                            await channel.edit(
-                                name=new_name
-                            )
-                            break
+                    if (
+                        isinstance(channel, discord.TextChannel)
+                        and channel.id == team["channel_id"]
+                    ):
+                        await channel.edit(
+                            name=new_name
+                        )
+                        break
 
                 roles = await guild.fetch_roles()
                 for r in roles:
@@ -518,14 +526,11 @@ class Teamwork(commands.Cog):
                 break
         with open(config.TEAMWORK_FILE, "w") as f:
             f.write(json.dumps(self.group_data, indent=4, sort_keys=True))
-        
+
         logging.info("Changed name from team '%s' to '%s'" % (old_name, new_name))
 
     async def cog_check(self, ctx) -> bool:
-        if ctx.invoked_with == "tm":
-            if ctx.guild is None:
-                return False
-        return True
+        return ctx.invoked_with != "tm" or ctx.guild is not None
 
     async def cog_before_invoke(self, ctx):
         self.group_data = json.load(open(config.TEAMWORK_FILE, "r"))
@@ -581,17 +586,15 @@ class Teamwork(commands.Cog):
 
     def has_group(self, user_id: int, group_name: str) -> bool:
         ts: list[dict] = self.group_data[str(user_id)]
-        for t in ts:
-            if t["name"] == group_name:
-                return True
-        return False
+        return any(t["name"] == group_name for t in ts)
 
     def transform_to_dc_channel_name(self, name: str) -> str:
-        nname = ""
         name = name.lower()
-        for sym in name:
-            if sym in ascii_lowercase + digits + config.ALLOWED_SYMBOLS_IN_CHANNEL_NAME:
-                nname += sym
+        nname = "".join(
+            sym
+            for sym in name
+            if sym in ascii_lowercase + digits + config.ALLOWED_SYMBOLS_IN_CHANNEL_NAME
+        )
 
         return nname.strip(punctuation)
 
@@ -604,11 +607,9 @@ class Teamwork(commands.Cog):
 
     async def remove_team_from_json(self, user_id: int, name: str) -> None:
         user_teams = self.group_data[str(user_id)]
-        new_user_teams = []
-        for team in user_teams:
-            if team["name"] != name:
-                new_user_teams.append(team)
         
+        new_user_teams = [team for team in user_teams if team["name"] != name]
+
         self.group_data[str(user_id)] = new_user_teams
 
         with open(config.TEAMWORK_FILE, "w") as f:

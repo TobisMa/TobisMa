@@ -43,26 +43,23 @@ class GMO_News(commands.Cog):
         for article in reversed(articles):
             try:
                 for i, e in enumerate(article, start=0):
-                    if i == 0:
-                        content = "<@&%s>" % config.ROLES["gmo"]["id"]
-                    else:
-                        content = None
-
+                    content = "<@&%s>" % config.ROLES["gmo"]["id"] if i == 0 else None
+                    
                     if isinstance(e, discord.Embed):
                         await news_channel.send(content=content, embed=e)
                     else:
                         await news_channel.send(content=content, embed=e[0], file=e[1])
-                        
+
             except Exception as e:
                 await report_error(self.bot, e, logging.ERROR)
                 await news_channel.send(article[0].url)
 
             logging.info("Sent gmo news article '%s'" % article[0].title)
-            
+
             await self.save_article(article)
 
             logging.info("Saved article successfully")
-        
+
         if len(articles):
             logging.info("Sent %s gmo news article" % len(articles))
 

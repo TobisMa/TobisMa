@@ -1,12 +1,13 @@
 import ast
 import asyncio
+from re import fullmatch, split
 from errors import NoFilterSetError
 import json
 import logging
 from os import error
 import random
 import traceback
-from datetime import datetime
+from datetime import date, datetime, timedelta
 from types import MappingProxyType
 from typing import Annotated, Any, Iterable, Literal, Mapping, Optional, Type, Union
 
@@ -52,7 +53,7 @@ def embed_message(*,
     embed = discord.Embed()
 
     embed.title = str(title)
-    embed.description = str(description)
+    embed.description = description
     
     # color
     if color:
@@ -133,7 +134,7 @@ def embed_message(*,
 
 def embed_command_error_msg(title: str, description: str, author: Optional[Union[discord.User]]=None, code=None, fields=[]) -> discord.Embed:
     return embed_message(
-        title=title + " #%i" % code if code else title,
+        title=title + " #%i" % code if code else "",
         description=description,
         timestamp=datetime.utcnow(),
         color=config.COLOR.ERROR,
@@ -151,18 +152,13 @@ def secure_link(link: str) -> str:
     Returns:
         str: the converted link
     """
-    r = ""
-
-    for l in link:
-        if l in LINK_DESTROYER:
-            r += "%" + hex(ord(l))[2:]
-        else:
-            r += l
-
-    return r
+    return "".join(
+        "%" + hex(ord(l))[2:] if l in LINK_DESTROYER else l
+        for l in link
+    )
 
 
-def html_to_dc_md(text: str) -> str:
+def html_to_dc_md(text: str) -> str:  # sourcery no-metrics
     """
     Removes html from an html tree code and parse it to an discord message format
     @param text: the html code
@@ -197,9 +193,8 @@ def html_to_dc_md(text: str) -> str:
             elif a_link_now:
                 if letter == "\"" and a_link and last_sym != "\\":
                     a_link_now = False
-                else:
-                    if not (letter == "\"" and last_sym != "\\"):
-                        a_link += letter
+                if letter != "\"" or last_sym == "\\":
+                    a_link += letter
 
             elif letter == ">":
                 tag = False
@@ -213,14 +208,14 @@ def html_to_dc_md(text: str) -> str:
         elif tag_name_active:
             if letter in (" ", ">", "/") and last_sym not in ("<", "/"):
                 tag_name_active = False
-                
-                if len(tag_pos) > 0 and tag_name == tag_pos[-1] and closing:
+
+                if tag_pos and tag_name == tag_pos[-1] and closing:
                     tag_pos.pop(-1)
 
                     # tag_name is the same as in the else
-                    if tag_name in ("b", "strong"):
+                    if tag_name in {"b", "strong"}:
                         out += "**"
-                    elif tag_name in ("em", "i"):
+                    elif tag_name in {"em", "i"}:
                         out += "*"
 
                     elif tag_name == "a":
@@ -231,9 +226,9 @@ def html_to_dc_md(text: str) -> str:
                 else:
                     tag_pos.append(tag_name)
 
-                    if tag_name in ("b", "strong"):
+                    if tag_name in {"b", "strong"}:
                         out += "**"
-                    elif tag_name in ("em", "i"):
+                    elif tag_name in {"em", "i"}:
                         out += "*"
                     elif tag_name == "a":
                         a_tag = True
@@ -244,14 +239,13 @@ def html_to_dc_md(text: str) -> str:
                             out += "\n %s. " % li_count
                         else:
                             out += "\n - "
-                
+
                 tag_name = ""
                 closing = False
+            elif letter == "/":
+                closing = True
             else:
-                if letter == "/":
-                    closing = True
-                else:
-                    tag_name += letter
+                tag_name += letter
 
         elif letter == "<" and not quoted:
             tag = True
@@ -282,17 +276,11 @@ def has_role(member: discord.Member, role: Union[str, int]) -> bool:
 
 
 def has_any_role(member: discord.Member, roles: Iterable[Union[str, int]]) -> bool:
-    for r in roles:
-        if has_role(member, r):
-            return True
-    return False
+    return any(has_role(member, r) for r in roles)
 
 
 def has_all_roles(member: discord.Member, roles: Iterable[Union[str, int]]) -> bool:
-    for r in roles:
-        if not has_role(member, r):
-            return False
-    return True
+    return all(has_role(member, r) for r in roles)
 
 
 def save_json_on_path(*, file: str, path: str, value: Any) -> None:
@@ -443,7 +431,7 @@ def create_console_message(msg: str) -> discord.Embed:
     )
 
 
-def reload_functions() -> Literal['Reloaded functions successfully']:
+def functions_reload() -> Literal['Reloaded functions successfully']:
     import importlib
     importlib.reload(__import__(__name__))
 
@@ -569,9 +557,10 @@ async def ask_for_message(bot: commands.Bot, channel: discord.abc.Messageable,
 ) -> Optional[discord.Message]:
     def check_message(msg: discord.Message) -> bool:
         if msg.author.id == bot.user.id: return False  # type:ignore
-        if msg.channel == channel:
-            if user is None: return True
-            elif user == msg.author: return True
+        
+        if msg.channel == channel \
+        and (user is None or user == msg.author): 
+            return True
         return False
 
     await channel.send(
@@ -590,20 +579,17 @@ async def ask_for_message(bot: commands.Bot, channel: discord.abc.Messageable,
 def get_category(categories: Iterable[discord.CategoryChannel], *, name=None, id=None) -> Optional[discord.CategoryChannel]:
     if name is None and id is None:
         raise NoFilterSetError("You need to set at least one filter (id or name)")
- 
+
     for category in categories:
-        if category.name == name or name is None:
-            if category.id == id or id is None:
-                return category
+        if (category.name == name or name is None) and (
+            category.id == id or id is None
+        ):
+            return category
     return None
 
 
 async def remove_member_role(role: discord.Role, member: discord.Member) -> None:
-    new_roles = []
-    for r in member.roles:
-        if r.id != role.id:
-            new_roles.append(r)
-
+    new_roles = [r for r in member.roles if r.id != role.id]
     await member.edit(
         roles=new_roles
     )
@@ -622,11 +608,75 @@ async def get_role(guild: discord.Guild, *, id=None, name=None) -> Optional[disc
     return None
 
 
+def get_timedelta(timedelta_str: str) -> timedelta:
+    if fullmatch(r"[\.a-zA-Z]+\(((days|seconds|microseconds)=[0-9]+(, )?)+\)", timedelta_str):
+        time_specifics = timedelta_str.split("(")[1]
+        time_specifics = time_specifics.replace("=", "': ")
+        dict_str = "{'" + time_specifics[:-1] + "}"
+        dict_str = dict_str.replace(", ", ", '")
+        return timedelta(**eval(dict_str))
+
+    raise ValueError("Invalid timedelta str")
+
+def convert_to_human_time(time: datetime) -> str:
+    return "on {.day}.{.month}.{.year} at {.hour}:{.minute}:~30".format(time)
+
+
+def convert_to_human_timedelta(time: timedelta, format_string: str = "%s days %s hours and %s minutes") -> str:
+    minutes = time.seconds // 60
+    hours = minutes // 60
+    minutes -= hours
+
+    days = hours // 24
+    hours -= days
+    days += time.days
+    return format_string % (days, hours, minutes)
+
+
+def get_invocation_time(time: str) -> timedelta:
+    if not fullmatch("([0-9]+d)?([0-9]+h)[0-9]+m(in)?", time):
+        raise ValueError("Invalid relative time format")
+
+    days = 0
+    hours = 0
+    minutes = 0
+
+    temp_num = ""
+
+    for l in time:
+        if l.isdigit():
+            temp_num += l
+        elif l == "d":
+            days = int(l)
+        elif l == "h":
+            hours = int(l)
+        elif l in ["m", "min"]:
+            minutes = int(l)
+
+    return timedelta(days=days, hours=hours, minutes=minutes)
+            
+
+def get_datetime_from_str(time: str) -> datetime:
+    if not fullmatch(r"[0-9]?[0-9]\.[0-2][0-9]\.[0-9]{4,4} [0-2]?[0-9]:[0-5][0-9](:[0-5][0-9])?", time):
+        raise ValueError("Invalid absolute time format")
+
+    date, daytime = time.split(" ")
+    day, month, year = date.split(".")
+    hour, minute, *_ = daytime.split(":")
+    return datetime(
+        int(year), 
+        int(month), 
+        int(day), 
+        int(hour), 
+        int(minute)
+    )
+
+
 logging.info("functions was loaded successfully")
 
 
 if __name__ == "__main__":
-    #print(html_to_dc_md("<em><p color=\"#8f6a7b\">h<strong>a<br/></strong>llo</p></em>"))
-    #print(html_to_dc_md("<p>lol<ol><li><em>hal</em>lo</li><li>32io320</li></ol>lol</p>"))
-    #print(html_to_dc_md("<a href=\"https://gymnasium-oberstadt.de/fdfddf\">lol</a>"))
-    save_json_on_path(file="data/news.json", path="h1/h4/2/h6", value="hello")
+    print(html_to_dc_md("<em><p color=\"#8f6a7b\">h<strong>a<br/></strong>llo</p></em>"))
+    print(html_to_dc_md("<p>lol<ol><li><em>hal</em>lo</li><li>32io320</li></ol>lol</p>"))
+    print(html_to_dc_md("<a href=\"https://gymnasium-oberstadt.de/fdfddf\">lol</a>"))
+    # save_json_on_path(file="data/news.json", path="h1/h4/2/h6", value="hello")

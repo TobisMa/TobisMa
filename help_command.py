@@ -40,7 +40,7 @@ class HelpCommand(commands.HelpCommand):
     async def send_bot_help(self, mapping):
         cogs: list[commands.Cog] = await self.get_cogs(mapping)
         pages: list[discord.Embed] = []
-        
+
         for cog in cogs:
             cmds: list[commands.Command] = await self.get_commands_from_cog(cog)
 
@@ -48,7 +48,7 @@ class HelpCommand(commands.HelpCommand):
                 title="Help on Extension `%s`" % cog.qualified_name,
                 color=config.COLOR.HELP
             )
-            embed.description = cog.description if cog.description else "_No extension explantion_"
+            embed.description = cog.description or "_No extension explantion_"
             embed.set_footer(
                 text="Tobias",
                 icon_url=get_random_pfp(self.ctx.bot)  # type: ignore
@@ -58,12 +58,13 @@ class HelpCommand(commands.HelpCommand):
                 for cmd in cmds:
                     if not await self.can_run(cmd):
                         continue
+
                     embed.add_field(
                         **(await self.get_field_for_cmd(cmd))
                     )
             else:
                 embed.description += "\n\n_```No commands```_"
-                
+
             pages.append(embed)
             logging.debug("Added cog %s to help command pages" % cog.qualified_name)
 
@@ -88,7 +89,7 @@ class HelpCommand(commands.HelpCommand):
                     )
                 )
             )
-        
+
         await self.send_book(first_pages + pages)
 
     async def get_field_for_cmd(self, cmd: commands.Command) -> dict[str, Union[str, bool]]:
@@ -112,10 +113,10 @@ class HelpCommand(commands.HelpCommand):
 
     async def send_book(self, pages) -> None:
         def check_reaction(reaction: discord.Reaction, user: discord.Member):
-            if user.id == self.ctx.author.id:  # type: ignore
-                if str(reaction.emoji) in config.PAGE_EMOJIS:
-                    return True
-            return False
+            return (
+                user.id == self.ctx.author.id  # type: ignore
+                and str(reaction.emoji) in config.PAGE_EMOJIS
+            )
 
         page_index = 0
         pages = color_embeds(pages, color=config.COLOR.HELP)
@@ -206,14 +207,16 @@ class HelpCommand(commands.HelpCommand):
 
         embed.add_field(
             name="Description",
-            value=command.description if command.description else "_No description_",
-            inline=False
+            value=command.description or "_No description_",
+            inline=False,
         )
+
         embed.add_field(
             name="Detailed description",
-            value=command.help if command.help else "_No detailed description_",
-            inline=False
+            value=command.help or "_No detailed description_",
+            inline=False,
         )
+
 
         await self.get_destination().send(embed=embed)
 
