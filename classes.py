@@ -10,25 +10,25 @@ class CodeString(str):
             self.value = self.value.lower()
         quoted = False
         for i in range(len(other) - 1, len(self.value)):
-            if quoted == True and in_string == False:
+            if quoted and in_string == False:
                 continue
-            elif quoted == False and in_string == True:
+            elif not quoted and in_string == True:
                 continue
-            elif i - len(other) < int(quoted) and quoted != False:
+            elif i - len(other) < int(quoted) and quoted:
                 continue
 
             if self.value[i] in ("\"", "\'"):
-                if quoted != False:
-                    quoted = i
-                else:
-                    quoted = False
+                quoted = i if quoted else False
                 continue
 
             if other == self.value[i - len(other) + 1:i + 1]:
                 if func:
-                    if (" " + self.value)[i - len(other) + 1] not in ascii_letters:
-                        if (self.value + " ")[i + 1] not in (ascii_letters + digits):
-                            return True
+                    if (" " + self.value)[
+                        i - len(other) + 1
+                    ] not in ascii_letters and (self.value + " ")[i + 1] not in (
+                        ascii_letters + digits
+                    ):
+                        return True
                 else:
                     return True
 

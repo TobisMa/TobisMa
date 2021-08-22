@@ -1,18 +1,17 @@
 import ast
 import asyncio
-from re import fullmatch, split
+from re import fullmatch
 from errors import NoFilterSetError
 import json
 import logging
-from os import error
 import random
 import traceback
-from datetime import date, datetime, timedelta
+from datetime import  datetime, timedelta
 from types import MappingProxyType
-from typing import Annotated, Any, Iterable, Literal, Mapping, Optional, Type, Union
+from typing import Any, Iterable, Literal, Mapping, Optional, Union
 
 import discord
-from discord.embeds import Embed, _EmptyEmbed, EmptyEmbed
+from discord.embeds import _EmptyEmbed, EmptyEmbed
 from discord.ext import commands
 
 import config
@@ -39,7 +38,7 @@ async def report_error(bot: commands.Bot, e: BaseException,
     
 
 def embed_message(*,
-    title: str,
+    title: Union[str, _EmptyEmbed] = EmptyEmbed,
     description: Union[str, _EmptyEmbed] = EmptyEmbed,
     color: Optional[Union[discord.Color, str]] = None,
     author: Optional[Union[discord.User, discord.Member, str, tuple[str, str], list[str], discord.ClientUser]] = None,
@@ -134,7 +133,7 @@ def embed_message(*,
 
 def embed_command_error_msg(title: str, description: str, author: Optional[Union[discord.User]]=None, code=None, fields=[]) -> discord.Embed:
     return embed_message(
-        title=title + " #%i" % code if code else "",
+        title=title + " #%i" % code if code else title,
         description=description,
         timestamp=datetime.utcnow(),
         color=config.COLOR.ERROR,
@@ -559,7 +558,10 @@ async def ask_for_message(bot: commands.Bot, channel: discord.abc.Messageable,
         if msg.author.id == bot.user.id: return False  # type:ignore
         
         if msg.channel == channel \
-        and (user is None or user == msg.author): 
+        and (
+            user is None 
+            or user == msg.author
+        ): 
             return True
         return False
 
@@ -633,8 +635,8 @@ def convert_to_human_timedelta(time: timedelta, format_string: str = "%s days %s
     return format_string % (days, hours, minutes)
 
 
-def get_invocation_time(time: str) -> timedelta:
-    if not fullmatch("([0-9]+d)?([0-9]+h)[0-9]+m(in)?", time):
+def get_timedelta_from_time(time: str) -> timedelta:
+    if not fullmatch("([0-9]+d)?([0-9]+h)?[0-9]+m(in)?", time):
         raise ValueError("Invalid relative time format")
 
     days = 0
@@ -647,11 +649,14 @@ def get_invocation_time(time: str) -> timedelta:
         if l.isdigit():
             temp_num += l
         elif l == "d":
-            days = int(l)
+            days = int(temp_num)
         elif l == "h":
-            hours = int(l)
+            hours = int(temp_num)
         elif l in ["m", "min"]:
-            minutes = int(l)
+            minutes = int(temp_num)
+
+        if l in ("d", "h", "m", "min"):
+            temp_num = ""
 
     return timedelta(days=days, hours=hours, minutes=minutes)
             
@@ -672,6 +677,14 @@ def get_datetime_from_str(time: str) -> datetime:
     )
 
 
+async def send_simple_error_message(self, ctx, error_msg: str, color=config.COLOR.RED) -> None:
+    await ctx.send(embed=embed_message(
+        title=error_msg,
+        color=color
+    ))  
+
+INF = float("inf")
+
 logging.info("functions was loaded successfully")
 
 
@@ -680,3 +693,4 @@ if __name__ == "__main__":
     print(html_to_dc_md("<p>lol<ol><li><em>hal</em>lo</li><li>32io320</li></ol>lol</p>"))
     print(html_to_dc_md("<a href=\"https://gymnasium-oberstadt.de/fdfddf\">lol</a>"))
     # save_json_on_path(file="data/news.json", path="h1/h4/2/h6", value="hello")
+    print(INF)

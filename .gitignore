@@ -4,3 +4,4 @@ data/**
 *.db
 .vscode
 web_checker.py
+reminder.py
